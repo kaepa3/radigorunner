@@ -3,7 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -12,8 +15,10 @@ import (
 )
 
 type Config struct {
-	Command  string
-	Programs []Program
+	Command       string
+	SkickaCommand string
+	SavePath      string
+	Programs      []Program
 }
 type Program struct {
 	Id   string
@@ -22,6 +27,7 @@ type Program struct {
 }
 type Option struct {
 	Time string
+	Name string
 	Id   string
 }
 
@@ -33,6 +39,7 @@ func initConfig() *Config {
 
 func main() {
 	config := initConfig()
+	fmt.Println(config)
 	prog := make(chan Option)
 	done := make(chan struct{})
 	go func() {
@@ -45,19 +52,73 @@ Wait:
 	for {
 		select {
 		case opt := <-prog:
-			out, err := exec.Command(config.Command, "rec", opt.Id, opt.Time).Output()
-			if err != nil {
-				fmt.Println(opt)
-				fmt.Println(string(out))
-				return
+			if flg := recording(config.Command, opt); flg {
+				uploadToCloud(config.SkickaCommand, config.SavePath)
+			} else {
+				break Wait
 			}
-			fmt.Println(string(out))
 		case <-done:
 			break Wait
 		default:
 		}
 	}
 }
+func recording(command string, opt Option) bool {
+	fmt.Println("recording start")
+	out, err := exec.Command(command, "rec", "-output=mp3", opt.Id, opt.Time, opt.Name).Output()
+	if err != nil {
+		fmt.Println(fmt.Scanf("%s:%s", out, opt))
+		return false
+	}
+	file, title := parseProgramName(string(out))
+	renameTitle(file, title)
+	fmt.Println(title)
+	return true
+}
+func renameTitle(file, title string) {
+	if len(file) == 0 || len(title) == 0 {
+		fmt.Printf("lengh err:%s:%s\n", file, title)
+	}
+	d, f := filepath.Split(file)
+	toPath := filepath.Join(d, title+"_"+f)
+	os.Rename(file, toPath)
+}
+func parseProgramName(log string) (string, string) {
+	title := ""
+	file := ""
+	for _, line := range strings.Split(log, "\n") {
+		texts := strings.Split(line, "|")
+		if len(texts) == 4 {
+			if strings.Index(texts[2], "TITLE") == -1 {
+				title = strings.Replace(texts[2], " ", "", -1)
+			}
+		} else if strings.Index(line, "mp3") != -1 {
+			file = strings.Replace(line, " ", "", -1)
+		}
+	}
+	return file, title
+}
+func uploadToCloud(sckicaCommand, savePath string) {
+	fmt.Println("upload start")
+	files, err := ioutil.ReadDir("./output")
+	if err != nil {
+		panic(err)
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		fromPath := "output/" + file.Name()
+		out, err := exec.Command(sckicaCommand, "upload", fromPath, savePath).Output()
+		if err != nil {
+			fmt.Println(fmt.Sprintf("%s:%s", err, out))
+		} else {
+			fmt.Println("remove:" + fromPath)
+			os.Remove(fromPath)
+		}
+	}
+}
+
 func sendTime(prog Program, programTime chan<- Option) {
 	today := time.Now()
 	h, m, err := parseTime(prog.Time)
@@ -66,11 +127,12 @@ func sendTime(prog Program, programTime chan<- Option) {
 			checkDay := today.AddDate(0, 0, i)
 			if checkDay.Weekday() == prog.Week {
 				recDay := time.Date(checkDay.Year(), checkDay.Month(), checkDay.Day(), h, m, 0, 0, time.Local)
-				programTime <- Option{
+				opt := Option{
 					Id:   fmt.Sprintf("-id=%s", prog.Id),
 					Time: fmt.Sprintf("-s=%s", recDay.Format("20060102150405")),
 				}
-				fmt.Println(recDay)
+				programTime <- opt
+				fmt.Println(opt)
 			}
 		}
 	} else {
