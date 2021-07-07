@@ -19,6 +19,7 @@ type Config struct {
 	SkickaCommand string
 	SavePath      string
 	Programs      []Program
+	Before        int
 }
 type Program struct {
 	Id   string
@@ -44,7 +45,7 @@ func main() {
 	done := make(chan struct{})
 	go func() {
 		for _, v := range config.Programs {
-			sendTime(v, prog)
+			sendTime(v, prog, createBefore(config.Before))
 		}
 		close(done)
 	}()
@@ -62,6 +63,12 @@ Wait:
 		default:
 		}
 	}
+}
+func createBefore(before int) int {
+	if before == 0 {
+		return 7
+	}
+	return before
 }
 func recording(command string, opt Option) bool {
 	fmt.Println("recording start")
@@ -119,12 +126,12 @@ func uploadToCloud(sckicaCommand, savePath string) {
 	}
 }
 
-func sendTime(prog Program, programTime chan<- Option) {
+func sendTime(prog Program, programTime chan<- Option, before int) {
 	today := time.Now()
 	h, m, err := parseTime(prog.Time)
 	if err == nil {
-		for i := -7; i < 0; i++ {
-			checkDay := today.AddDate(0, 0, i)
+		for i := -before; i < 0; i++ {
+			checkDay := today.AddDate(0, 0, -1)
 			if checkDay.Weekday() == prog.Week {
 				recDay := time.Date(checkDay.Year(), checkDay.Month(), checkDay.Day(), h, m, 0, 0, time.Local)
 				opt := Option{
