@@ -105,7 +105,7 @@ func parseProgramName(log string) (string, string) {
 	}
 	return file, title
 }
-func uploadToCloud(sckicaCommand, savePath string) {
+func uploadToCloud(skicaCommand, savePath string) {
 	fmt.Println("upload start")
 	files, err := ioutil.ReadDir("./output")
 	if err != nil {
@@ -116,7 +116,8 @@ func uploadToCloud(sckicaCommand, savePath string) {
 			continue
 		}
 		fromPath := "output/" + file.Name()
-		out, err := exec.Command(sckicaCommand, "upload", fromPath, savePath).Output()
+		fmt.Println(skicaCommand, "upload", fromPath, savePath)
+		out, err := exec.Command(skicaCommand, "upload", fromPath, "-p "+savePath).Output()
 		if err != nil {
 			fmt.Println(fmt.Sprintf("%s:%s", err, out))
 		} else {
