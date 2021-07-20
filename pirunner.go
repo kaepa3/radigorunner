@@ -117,7 +117,7 @@ func uploadToCloud(skicaCommand, savePath string) {
 		}
 		fromPath := "output/" + file.Name()
 		fmt.Println(skicaCommand, "upload", "-p "+savePath, fromPath)
-		out, err := exec.Command(skicaCommand, "upload", "-p "+savePath, fromPath).Output()
+		out, err := exec.Command(skicaCommand, "upload", "-p", savePath, fromPath).Output()
 		if err != nil {
 			fmt.Println(fmt.Sprintf("%s:%s", err, out))
 		} else {
