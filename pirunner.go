@@ -72,7 +72,7 @@ func createBefore(before int) int {
 }
 func recording(command string, opt Option) bool {
 	fmt.Println("recording start")
-	out, err := exec.Command(command, "rec", "-output=mp3", opt.Id, opt.Time, opt.Name).Output()
+	out, err := exec.Command(command, "rec", opt.Id, opt.Time, opt.Name).Output()
 	if err != nil {
 		fmt.Println(fmt.Scanf("%s:%s", out, opt))
 		return false
@@ -99,7 +99,7 @@ func parseProgramName(log string) (string, string) {
 			if strings.Index(texts[2], "TITLE") == -1 {
 				title = strings.Replace(texts[2], " ", "", -1)
 			}
-		} else if strings.Index(line, "mp3") != -1 {
+		} else if strings.Index(line, "aac") != -1 {
 			file = strings.Replace(line, " ", "", -1)
 		}
 	}
@@ -132,7 +132,7 @@ func sendTime(prog Program, programTime chan<- Option, before int) {
 	h, m, err := parseTime(prog.Time)
 	if err == nil {
 		for i := -before; i < 0; i++ {
-			checkDay := today.AddDate(0, 0, -1)
+			checkDay := today.AddDate(0, 0, i)
 			if checkDay.Weekday() == prog.Week {
 				recDay := time.Date(checkDay.Year(), checkDay.Month(), checkDay.Day(), h, m, 0, 0, time.Local)
 				opt := Option{
